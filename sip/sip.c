@@ -10,7 +10,7 @@ void sig_int(int num)
 int main(int argc, char* argv[])
 {
 	
-	struct sip_sk_buff *skb=NULL;
+	struct skbuff *skb=NULL;
 
 	signal( SIGINT,sig_int);
 	dev = sip_init();

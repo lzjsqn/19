@@ -80,12 +80,12 @@ enum
 #define ICMP_MIB_DUMMY	__ICMP_MIB_MAX
 #define ICMP_MIB_MAX	(__ICMP_MIB_MAX + 1)
 struct icmp_control;
-struct sip_sk_buff;
+struct skbuff;
 
 struct icmp_control {
 	int output_entry;	/* Field for increment on output */
 	int input_entry;	/* Field for increment on input */
-	void (*handler)(struct net_device *dev, struct sip_sk_buff *skb);
+	void (*handler)(struct net_device *dev, struct skbuff *skb);
 	short   error;		/* This ICMP is classed as an error message */
 };
 /*
@@ -109,7 +109,7 @@ struct sip_icmphdr {
   } un;
 };
 struct icmp_bxm {
-	struct sip_sk_buff *skb;
+	struct skbuff *skb;
 	int offset;
 	int data_len;
 
@@ -119,7 +119,7 @@ struct icmp_bxm {
 	} data;
 	int head_len;
 	//struct ip_options replyopts;
-	unsigned char  optbuf[40];
+	__u8  optbuf[40];
 };
 
 

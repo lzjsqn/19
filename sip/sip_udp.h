@@ -1,5 +1,8 @@
 #ifndef __SIP_UDP_H__
 #define __SIP_UDP_H__
+#define UDP_FLAGS_NOCHKSUM 0x01U
+#define UDP_FLAGS_UDPLITE  0x02U
+#define UDP_FLAGS_CONNECTED  0x04U
 struct sip_udphdr {
 	__be16	source;
 	__be16	dest;
@@ -11,8 +14,8 @@ struct ip_pcb
 {
 	/* Common members of all PCB types */
 	/* ip addresses in network byte order */
-	struct in_addr local_ip; 
-	struct in_addr remote_ip;
+	struct in_addr ip_local; 
+	struct in_addr ip_remote;
 	/* Socket options */  
 	__u16 so_options;     
 	/* Type Of Service */ 
@@ -25,8 +28,8 @@ struct ip_pcb
 struct udp_pcb {
 	/* Common members of all PCB types */
 	/* ip addresses in network byte order */
-	struct in_addr local_ip; 
-	struct in_addr remote_ip;
+	struct in_addr ip_local; 
+	struct in_addr ip_remote;
 	/* Socket options */  
 	__u16 so_options;     
 	/* Type Of Service */ 
@@ -44,8 +47,8 @@ struct udp_pcb {
 
 	__u8 flags;
 	/* ports are in host byte order */
-	__u16 local_port;
-	__u16 remote_port;
+	__u16 port_local;
+	__u16 port_remote;
 
 
 #if LWIP_UDPLITE
@@ -54,7 +57,7 @@ struct udp_pcb {
 #endif /* LWIP_UDPLITE */
 	/* receive callback function
 	* addr and port are in same byte order as in the pcb
-	* The callback is responsible for freeing the pbuf
+	* The callback is responsible for freeing the skbuff
 	* if it's not used any more.
 	*
 	* @param arg user supplied argument (udp_pcb.recv_arg)
@@ -65,11 +68,12 @@ struct udp_pcb {
 	*/
 	void (* recv)(void *arg, 
 				struct udp_pcb *pcb, 
-				struct sip_sk_buff *skb,
+				struct skbuff *skb,
 				struct in_addr *addr, 
 				__u16 port);
 	/* user-supplied argument for the recv callback */
 	void *recv_arg;  
+	struct sock *conn;
 };
 
 #endif /*__SIP_UDP_H__*/

@@ -59,14 +59,14 @@
 #define WORDSIZE 4
 #define SKB_DATA_ALIGN(X) (((X) + (WORDSIZE - 1)) & \
 				 ~(WORDSIZE - 1))						
-extern struct sip_sk_buff *sip_alloc_skb(unsigned int size);
-extern void sip_free_skb(struct sip_sk_buff *skb);
-extern unsigned char *sip_skb_put(struct sip_sk_buff *skb, unsigned int len);
+extern struct skbuff *skb_alloc(unsigned int size);
+extern void skb_free(struct skbuff *skb);
+extern __u8 *skb_put(struct skbuff *skb, unsigned int len);
 
 
 extern struct arpt_arp* arp_find_entry(__u32 ip);
 
-extern int arp_input(struct sip_sk_buff **pskb, struct net_device *dev);
+extern int arp_input(struct skbuff **pskb, struct net_device *dev);
 extern struct arpt_arp  * update_arp_entry(__u32 ip,  __u8 *ethaddr);
 
 extern struct net_device * sip_init(void);

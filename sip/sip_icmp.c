@@ -1,12 +1,9 @@
 #include "sip.h"
 
-
-
-
-static void icmp_echo(struct net_device *dev, struct sip_sk_buff *skb)
+static void icmp_echo(struct net_device *dev, struct skbuff *skb)
 {
 	DBGPRINT(DBG_LEVEL_TRACE,"==>icmp_echo\n");
-	struct sip_icmphdr *icmph = skb->h.icmph;
+	struct sip_icmphdr *icmph = skb->th.icmph;
 	struct sip_iphdr *iph = skb->nh.iph;
 	DBGPRINT(DBG_LEVEL_NOTES,"tot_len:%d\n",skb->tot_len);
 	if(IP_IS_BROADCAST(dev, skb->nh.iph->daddr) 
@@ -21,34 +18,36 @@ static void icmp_echo(struct net_device *dev, struct sip_sk_buff *skb)
 		icmph->checksum += htons(ICMP_ECHO<<8);
 	}
 
-	ip_output(dev,skb);
+	__be32 dest = skb->nh.iph->saddr;
+
+	ip_output(dev,skb,&dev->ip_host.s_addr,&dest, 255, 0, IPPROTO_ICMP);
 	
 EXITicmp_echo:
 	DBGPRINT(DBG_LEVEL_TRACE,"<==icmp_echo\n");
 	return ;
 }
-static void icmp_discard(struct net_device *dev, struct sip_sk_buff *skb)
+static void icmp_discard(struct net_device *dev, struct skbuff *skb)
 {
 DBGPRINT(DBG_LEVEL_TRACE,"==>icmp_discard\n");
 DBGPRINT(DBG_LEVEL_TRACE,"<==icmp_discard\n");
 }
 
-static void icmp_unreach(struct net_device *dev, struct sip_sk_buff *skb)
+static void icmp_unreach(struct net_device *dev, struct skbuff *skb)
 {
 	DBGPRINT(DBG_LEVEL_TRACE,"==>icmp_unreach\n");
 	#if 0
-  struct pbuf *q;
+  struct skbuff *q;
   struct ip_hdr *iphdr;
   struct icmp_dur_hdr *idur;
 
   /* ICMP header + IP header + 8 bytes of data */
-  q = pbuf_alloc(PBUF_IP, sizeof(struct icmp_dur_hdr) + IP_HLEN + ICMP_DEST_UNREACH_DATASIZE,
+  q = skbuff_alloc(PBUF_IP, sizeof(struct icmp_dur_hdr) + IP_HLEN + ICMP_DEST_UNREACH_DATASIZE,
                  PBUF_RAM);
   if (q == NULL) {
-    LWIP_DEBUGF(ICMP_DEBUG, ("icmp_dest_unreach: failed to allocate pbuf for ICMP packet.\n"));
+    LWIP_DEBUGF(ICMP_DEBUG, ("icmp_dest_unreach: failed to allocate skbuff for ICMP packet.\n"));
     return;
   }
-  LWIP_ASSERT("check that first pbuf can hold icmp message",
+  LWIP_ASSERT("check that first skbuff can hold icmp message",
              (q->len >= (sizeof(struct icmp_dur_hdr) + IP_HLEN + ICMP_DEST_UNREACH_DATASIZE)));
 
   iphdr = p->payload;
@@ -70,30 +69,30 @@ static void icmp_unreach(struct net_device *dev, struct sip_sk_buff *skb)
   snmp_inc_icmpoutdestunreachs();
 
   ip_output(q, NULL, &(iphdr->src), ICMP_TTL, 0, IP_PROTO_ICMP);
-  pbuf_free(q);
+  skb_free(q);
   #endif
 	DBGPRINT(DBG_LEVEL_TRACE,"<==icmp_unreach\n");
 }
 
-static void icmp_redirect(struct net_device *dev, struct sip_sk_buff *skb)
+static void icmp_redirect(struct net_device *dev, struct skbuff *skb)
 {
 DBGPRINT(DBG_LEVEL_TRACE,"==>icmp_redirect\n");
 DBGPRINT(DBG_LEVEL_TRACE,"<==icmp_redirect\n");
 }
 
-static void icmp_timestamp(struct net_device *dev, struct sip_sk_buff *skb)
+static void icmp_timestamp(struct net_device *dev, struct skbuff *skb)
 {
 DBGPRINT(DBG_LEVEL_TRACE,"==>icmp_timestamp\n");
 DBGPRINT(DBG_LEVEL_TRACE,"<==icmp_timestamp\n");
 }
 
-static void icmp_address(struct net_device *dev, struct sip_sk_buff *skb)
+static void icmp_address(struct net_device *dev, struct skbuff *skb)
 {
 DBGPRINT(DBG_LEVEL_TRACE,"==>icmp_address\n");
 DBGPRINT(DBG_LEVEL_TRACE,"<==icmp_address\n");
 }
 
-static void icmp_address_reply(struct net_device *dev, struct sip_sk_buff *skb)
+static void icmp_address_reply(struct net_device *dev, struct skbuff *skb)
 {
 DBGPRINT(DBG_LEVEL_TRACE,"==>icmp_address_reply\n");
 DBGPRINT(DBG_LEVEL_TRACE,"<==icmp_address_reply\n");
@@ -210,14 +209,14 @@ static const struct icmp_control icmp_pointers[NR_ICMP_TYPES + 1] = {
 	},
 };
 
-int icmp_reply(struct net_device *dev, struct sip_sk_buff *skb)
+int icmp_reply(struct net_device *dev, struct skbuff *skb)
 {
 
 }
 /*
  *	Deal with incoming ICMP packets.
  */
-int icmp_input(struct net_device *dev, struct sip_sk_buff *skb)
+int icmp_input(struct net_device *dev, struct skbuff *skb)
 {
 	DBGPRINT(DBG_LEVEL_TRACE,"==>icmp_input\n");
 	struct sip_icmphdr *icmph;
@@ -225,7 +224,7 @@ int icmp_input(struct net_device *dev, struct sip_sk_buff *skb)
 	switch (skb->ip_summed) {
 	case CHECKSUM_NONE:
 		skb->csum = 0;
-		if (cksum(skb->mac.raw, 0)){
+		if (cksum(skb->phy.raw, 0)){
 			DBGPRINT(DBG_LEVEL_ERROR, "icmp_checksum error\n");
 			goto drop;
 		}
@@ -234,10 +233,10 @@ int icmp_input(struct net_device *dev, struct sip_sk_buff *skb)
 		break;
 	}
 
-	unsigned short csum = cksum(skb->h.raw, ntohs(skb->nh.iph->tot_len)-skb->nh.iph->ihl*4);
+	unsigned short csum = cksum(skb->th.raw, ntohs(skb->nh.iph->tot_len)-skb->nh.iph->ihl*4);
 	DBGPRINT(DBG_LEVEL_NOTES,"ICMP check sum value is:%u\n",csum);
 
-	icmph = skb->h.icmph;
+	icmph = skb->th.icmph;
 
 	/*
 	 *	18 is the highest 'known' ICMP type. Anything else is a mystery
@@ -259,7 +258,7 @@ normal:
 	return 0;	
 
 drop:
-	sip_free_skb(skb);
+	skb_free(skb);
 	goto normal;
 }
 

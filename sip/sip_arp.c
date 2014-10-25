@@ -8,7 +8,7 @@ void init_arp_entry()
 	for(i = 0; i<ARP_TABLE_SIZE; i++)
 	{
 		arp_table[i].ctime = 0;
-		memset(arp_table[i].ethaddr, 0, SIP_ETH_ALEN);
+		memset(arp_table[i].ethaddr, 0, ETH_ALEN);
 		arp_table[i].ipaddr = 0;
 		arp_table[i].status = ARP_EMPTY;
 	}
@@ -37,7 +37,7 @@ struct arpt_arp  * update_arp_entry(__u32 ip,  __u8 *ethaddr)
 	struct arpt_arp  *found = NULL;
 	found = arp_find_entry(ip);
 	if(found){
-		memcpy(found->ethaddr, ethaddr, SIP_ETH_ALEN);
+		memcpy(found->ethaddr, ethaddr, ETH_ALEN);
 		found->status = ARP_ESTABLISHED;
 		found->ctime = time(NULL);
 	}
@@ -64,7 +64,7 @@ void arp_add_entry(__u32 ip, __u8 *ethaddr, int status)
 
 	if(found){
 		found->ipaddr = ip;
-		memcpy(found->ethaddr, ethaddr, SIP_ETH_ALEN);
+		memcpy(found->ethaddr, ethaddr, ETH_ALEN);
 		found->status = status;
 		found->ctime = time(NULL);
 	}
@@ -79,7 +79,7 @@ void arp_add_entry(__u32 ip, __u8 *ethaddr, int status)
  *	Create an arp packet. If (dest_hw == NULL), we create a broadcast
  *	message.
  */
-struct sip_sk_buff *arp_create(struct net_device *dev, 		/*设备*/
+struct skbuff *arp_create(struct net_device *dev, 		/*设备*/
 							int type, 					/*ARP协议的类型*/
 							__u32 src_ip,					/*源主机IP*/
 							__u32 dest_ip,					/*目的主机IP*/
@@ -87,43 +87,43 @@ struct sip_sk_buff *arp_create(struct net_device *dev, 		/*设备*/
 							__u8* dest_hw, 		/*目的主机MAC*/							
 							__u8* target_hw)		/*解析的主机MAC*/
 {
-	struct sip_sk_buff *skb;
+	struct skbuff *skb;
 	struct sip_arphdr *arph;
 	DBGPRINT(DBG_LEVEL_TRACE,"==>arp_create\n");
 	/*
 	 *	Allocate a buffer
 	 */	
-	skb = sip_alloc_skb(SIP_ETH_ZLEN);
+	skb = skb_alloc(ETH_ZLEN);
 	if (skb == NULL)
 	{
 		goto EXITarp_create;
 	}
 
-	skb->mac.raw = sip_skb_put(skb,sizeof(struct sip_ethhdr));
-	skb->nh.raw = sip_skb_put(skb,sizeof(struct sip_arphdr));
+	skb->phy.raw = skb_put(skb,sizeof(struct sip_ethhdr));
+	skb->nh.raw = skb_put(skb,sizeof(struct sip_arphdr));
 	skb->dev = dev;
 	if (src_hw == NULL)
-		src_hw = dev->dev_addr;
+		src_hw = dev->hwaddr;
 	if (dest_hw == NULL)
-		dest_hw = dev->broadcast;
+		dest_hw = dev->hwbroadcast;
 
-	skb->mac.eh->h_proto = htons(ETH_P_ARP);
-	memcpy(skb->mac.eh->h_dest, dest_hw, SIP_ETH_ALEN);
-	memcpy(skb->mac.eh->h_source, src_hw, SIP_ETH_ALEN);
+	skb->phy.ethh->h_proto = htons(ETH_P_ARP);
+	memcpy(skb->phy.ethh->h_dest, dest_hw, ETH_ALEN);
+	memcpy(skb->phy.ethh->h_source, src_hw, ETH_ALEN);
 
 	skb->nh.arph->ar_op = htons(type);
 	skb->nh.arph->ar_hrd = htons(ETH_P_802_3);
 	skb->nh.arph->ar_pro =  htons(ETH_P_IP);
-	skb->nh.arph->ar_hln = SIP_ETH_ALEN;
+	skb->nh.arph->ar_hln = ETH_ALEN;
 	skb->nh.arph->ar_pln = 4;
 
-	memcpy(skb->nh.arph->ar_sha, src_hw, SIP_ETH_ALEN);
+	memcpy(skb->nh.arph->ar_sha, src_hw, ETH_ALEN);
 	memcpy(skb->nh.arph->ar_sip,  (__u8*)&src_ip, 4);
 	memcpy(skb->nh.arph->ar_tip, (__u8*)&dest_ip, 4);
 	if (target_hw != NULL)
-		memcpy(skb->nh.arph->ar_tha, target_hw, dev->addr_len);
+		memcpy(skb->nh.arph->ar_tha, target_hw, dev->hwaddr_len);
 	else
-		memset(skb->nh.arph->ar_tha, 0, dev->addr_len);
+		memset(skb->nh.arph->ar_tha, 0, dev->hwaddr_len);
 EXITarp_create:	
 	DBGPRINT(DBG_LEVEL_TRACE,"<==arp_create\n");
 	return skb;
@@ -140,18 +140,18 @@ void arp_send(struct net_device *dev, 		/*设备*/
 				__u8* dest_hw, 		/*目的主机MAC*/							
 				__u8* target_hw)		/*解析的主机MAC*/
 {
-	struct sip_sk_buff *skb;
+	struct skbuff *skb;
 	DBGPRINT(DBG_LEVEL_TRACE,"==>arp_send\n");
 	skb = arp_create(dev,type,src_ip,dest_ip,src_hw,dest_hw,target_hw);
 	if(skb){
-		dev->linkoutput(&skb, dev);
+		dev->linkoutput(skb, dev);
 	}
 	DBGPRINT(DBG_LEVEL_TRACE,"<==arp_send\n");
 }
 
 int arp_request(struct net_device *dev, __u32 ip)
 {
-	struct sip_sk_buff *skb;
+	struct skbuff *skb;
 	DBGPRINT(DBG_LEVEL_TRACE,"==>arp_request\n");
 	__u32 tip = 0;
 	if((ip&dev->ip_netmask.s_addr) == (dev->ip_host.s_addr & dev->ip_netmask.s_addr ) )
@@ -162,17 +162,17 @@ int arp_request(struct net_device *dev, __u32 ip)
 					ARPOP_REQUEST,
 					dev->ip_host.s_addr,
 					tip,
-					dev->dev_addr,
+					dev->hwaddr,
 					NULL,
 					NULL);
 	if(skb){
-		dev->linkoutput(&skb, dev);
+		dev->linkoutput(skb, dev);
 	}
 	DBGPRINT(DBG_LEVEL_TRACE,"<==arp_request\n");
 }
-int arp_input(struct sip_sk_buff **pskb, struct net_device *dev)
+int arp_input(struct skbuff **pskb, struct net_device *dev)
 {
-	struct sip_sk_buff *skb = *pskb;
+	struct skbuff *skb = *pskb;
 
 	__be32 ip = 0;
 	DBGPRINT(DBG_LEVEL_TRACE,"==>arp_input\n");
@@ -183,7 +183,7 @@ int arp_input(struct sip_sk_buff **pskb, struct net_device *dev)
 	ip = *(__be32*)(skb->nh.arph->ar_tip) ;
 	if(ip == dev->ip_host.s_addr)
 	{
-		update_arp_entry(ip, dev->dev_addr);
+		update_arp_entry(ip, dev->hwaddr);
 	}
 
 	switch(ntohs(skb->nh.arph->ar_op))
@@ -198,14 +198,14 @@ int arp_input(struct sip_sk_buff **pskb, struct net_device *dev)
 					ARPOP_REPLY, 
 					dev->ip_host.s_addr,
 					*(__u32*)skb->nh.arph->ar_sip, 
-					dev->dev_addr,
-					skb->mac.eh->h_source, 
+					dev->hwaddr,
+					skb->phy.ethh->h_source, 
 					skb->nh.arph->ar_sha);
-			arp_add_entry(*(__u32*)skb->nh.arph->ar_sip, skb->mac.eh->h_source, ARP_ESTABLISHED);
+			arp_add_entry(*(__u32*)skb->nh.arph->ar_sip, skb->phy.ethh->h_source, ARP_ESTABLISHED);
 			}
 			break;
 		case ARPOP_REPLY:
-			arp_add_entry(*(__u32*)skb->nh.arph->ar_sip, skb->mac.eh->h_source, ARP_ESTABLISHED);
+			arp_add_entry(*(__u32*)skb->nh.arph->ar_sip, skb->phy.ethh->h_source, ARP_ESTABLISHED);
 			break;
 	}
 	DBGPRINT(DBG_LEVEL_TRACE,"<==arp_input\n");

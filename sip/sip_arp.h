@@ -14,7 +14,7 @@ enum arp_status{
 
 struct arpt_arp{
 	__u32	ipaddr;
-	__u8	ethaddr[SIP_ETH_ALEN];
+	__u8	ethaddr[ETH_ALEN];
   	time_t 	ctime;
 	enum arp_status status;
 };
@@ -30,9 +30,9 @@ struct sip_arphdr
 	 /*
 	  *	 Ethernet looks like this : This bit is variable sized however...
 	  */
-	__u8 ar_sha[SIP_ETH_ALEN];	/* sender hardware address	*/
+	__u8 ar_sha[ETH_ALEN];	/* sender hardware address	*/
 	__u8 ar_sip[4];		/* sender IP address		*/
-	__u8 ar_tha[SIP_ETH_ALEN];	/* target hardware address	*/
+	__u8 ar_tha[ETH_ALEN];	/* target hardware address	*/
 	__u8 ar_tip[4];		/* target IP address		*/
 };
 

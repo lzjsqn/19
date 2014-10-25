@@ -1,5 +1,7 @@
 #ifndef __SIP_IP_H__
 #define __SIP_IP_H__
+
+#define IPHDR_LEN 20
 /* Standard well-defined IP protocols.  */
 enum {
   SIP_IPPROTO_IP = 0,		/* Dummy protocol for TCP		*/
@@ -29,9 +31,8 @@ enum {
 };
 #define IP_MAX_TTL 255
 
-
-
-struct sip_iphdr {
+struct sip_iphdr 
+{
 #if defined(__LITTLE_ENDIAN_BITFIELD)
 	__u8	ihl:4,
 		version:4;
@@ -58,5 +59,17 @@ struct sip_iphdr {
 #define IP_IS_LINKLOCAL(ip) (((ip) & ntohl(0xffff0000UL)) == ntohl(0xa9fe0000UL))
 #define IP_ADDR_ANY_VALUE 0x00000000UL
 #define IP_ADDR_BROADCAST_VALUE 0xffffffffUL
+
+/* IP reassembly helper struct.
+ * This is exported because memp needs to know the size.
+ */
+struct sip_reass{
+  struct sip_reass *next;
+  struct skbuff *skb;
+  struct sip_iphdr iphdr;
+  __u16 datagram_len;
+  __u8 flags;
+  __u8 timer;
+};
 
 #endif /*__SIP_IP_H__*/
